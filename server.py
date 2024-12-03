@@ -1,4 +1,5 @@
 import socket
+import threading
 
 PORT = 12345
 HOST = "localhost"
@@ -8,30 +9,49 @@ serverSocket.bind((HOST, PORT))
 serverSocket.listen(2)
 print(f"Servidor escuchando en {HOST}:{PORT}")
 
-conexion, direccion = serverSocket.accept()
-print(f"Jugador conectado desde {direccion}")
-
-
-pie = conexion.recv(1024).decode()
-print(f"El cliente calza: {pie}")
-
 tamaño = 100
 
-while True:
-    print(f"pititoss")
-    paso = conexion.recv(1024).decode()
+clientes = []
 
-    if paso:
-        tamaño -= pie
-        print(f"El cliente ha enviado: {paso}. Contador: {tamaño}")
+def manejar_cliente(conexion, direccion, num_cliente):
+    global tamaño
 
-        if tamaño <= 0:
-            conexion.sendall("¡Ganaste!\n".encode())
-            print("El cliente ha ganado")
-            break
-        else:
-            conexion.sendall(f"Da otro paso. Contador restante: {tamaño}\n".encode())
+    pie = conexion.recv(1024).decode()
+    print(f"El cliente {num_cliente} calza: {pie}")
 
- 
-conexion.close()
+    pie = int(pie)
+
+    conexion.sendall(f"Jugador {num_cliente}, Da un paso. Contador restante: {tamaño}\n".encode())
+
+    while True:
+        paso = conexion.recv(1024).decode()
+
+        if paso:
+            tamaño -= pie
+            print(f"El cliente {num_cliente} ha enviado a dado un paso. Contador restante: {tamaño}")
+
+            if tamaño < 0:
+                conexion.sendall("¡Ganaste!\n".encode())
+                print(f"El cliente {num_cliente} ha ganado")
+                break
+            else:
+                conexion.sendall(f"Jugador {num_cliente}, Da un paso. Contador restante: {tamaño}\n".encode())
+    
+    conexion.close()
+
+def aceptar_conexiones():
+    global clientes
+
+    for num_cliente in range(1, 3):
+        conexion, direccion = serverSocket.accept()
+        print(f"Jugador {num_cliente} conectado desde {direccion}")
+
+        clientes.append(conexion)
+
+        hilo = threading.Thread(target=manejar_cliente, args=(conexion, direccion, num_cliente))
+        hilo.start()
+
+
+aceptar_conexiones()
 serverSocket.close()
+
